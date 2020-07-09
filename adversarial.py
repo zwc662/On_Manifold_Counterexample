@@ -72,12 +72,15 @@ def FKM_attack(model, generator, feeder, save_path, T = 100, sample_num = 100, d
             if i != predictions[i][-1]:
                 print("False prediction: %d -> %d" % (i, predictions[i][-1].item(0)))
                 print("Restart digit %d" % i)
-                z_t_[i, :] = np.copy(code[i][0])
+                code_, _, _ = create_initial_dicts(model, generator, feeder)
+                z_t_[i, :] = np.copy(code_[i][0])
             
 
-        plot(images, predictions, code, save_path + "_ep_%d_" % t)
+        plot(images, predictions, code, save_path + "_ep_%d_" % t, t)
         print("Update coding {}".format(g_t * eta))
         print("L2-norm {}".format(np.linalg.norm(g_t * eta, ord = 2)))
+
+    plot(images, predictions, code, save_path)
 
 
     # Draw the reconstructions and predictions
@@ -109,23 +112,33 @@ def generate_image_from_code(model, generator, z):
     pred, loss = model.predict(reconstructions, true_label)
     return z, true_label, reconstructions, pred, loss
         
-def plot(images, predictions, encodings, save_path):
-    width = len(images[0])
+def plot(images, predictions, encodings, save_path, index = None):
+    if index is None:
+        width = len(images[0])
+    else:
+        width = 1
+    
+    adv = ""
     plt.figure(figsize=(3 * width, 20))
-    for i in range(10):
-        for j in range(width):
+
+    for j in range(width): 
+        if width > 1 or index is None:
+            index = j
+        print("Processing %ith column..." % index)
+        for i in range(10):
             plt.subplot(10, width, width * i + j + 1)
-            plt.imshow(images[i][j].reshape(28, 28), vmin=0, vmax=1, cmap="gray")
-            title = plt.title("Prediction %i; Deviation %i" %  
-                    (predictions[i][j], 
-                     np.linalg.norm(encodings[i][j] - encodings[i][0], ord = 2)))
-            if int(predictions[i][j]) != i:
+            plt.imshow(images[i][index].reshape(28, 28), vmin=0, vmax=1, cmap="gray")
+            title = plt.title("%i: Pred %i; Dist %.4f" %  
+                    (i, predictions[i][index], 
+                     np.linalg.norm(encodings[i][index] - encodings[i][0], ord = 2)))
+            if int(predictions[i][index]) != i:
                 plt.setp(title, color='r') 
+                adv = "_cex"
             plt.colorbar()
             plt.tight_layout()
     if save_path:
-        plt.savefig(save_path + "image_" + timestamp + ".png", bbox_inches="tight")
-
+        plt.savefig(save_path + "image_" + timestamp + adv + ".png", bbox_inches="tight")
+        plt.close()
 
 if __name__ == '__main__':
     # Ignore warning message by tensor flow
@@ -195,7 +208,7 @@ if __name__ == '__main__':
 
     #noised_images_experiment(model=model_instance, generator=generator_instance, feeder = mnist, epoch=args.epoch, save_path = fig_path + "noised_")
     
-    attack_opt = dict(T = 50, sample_num = 100, delta = 1e-2, eta = 1e-2)
+    attack_opt = dict(T = args.epoch, sample_num = 100, delta = 1e-2, eta = 1e-2)
     FKM_attack(model=model_instance, generator=generator_instance, feeder = mnist, save_path = fig_path + "attack_", **attack_opt)
 
 
