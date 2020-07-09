@@ -67,7 +67,6 @@ if __name__ == '__main__':
 
     if _mode == "conditional":
         opt["label_size"] = 10
-    print(Model.__doc__)
     model = Model(**opt)
     mnist_train(model=model, epoch=args.epoch, save_path=save_path, mode=_mode, input_image=_inp_img)
 

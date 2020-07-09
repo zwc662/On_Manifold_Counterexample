@@ -39,7 +39,7 @@ def noised_images_experiment(model, generator, feeder, epoch, save_path):
         z_add_on = np.random.randn(*z.shape) * 0.01 * e
         z+= z_add_on
         z, lab, img, pred = generate_image_from_code(model, generator, z)
-        for i in range(10):
+        for i in range(generator.label_size):
             i_ = i % generator.label_size
             images[i_].append(img[i])
             predictions[i_].append(np.argmax(pred[i]))
@@ -62,7 +62,7 @@ def FKM_attack(model, generator, feeder, save_path, T = 100, sample_num = 100, d
         for i in range(sample_num):
             u_t_i = (np.random.random(z_t_.shape) * 2. - 1.) * delta
             z_t_i, true_label_t_i, recon_t_i, pred_t_i, loss_t_i = generate_image_from_code(model, generator, z_t_ + u_t_i)
-            g_t += np.tile(loss_t_i, [generator.label_size, 1]).T * u_t_i * eta / delta
+            g_t += np.tile(loss_t_i, [u_t_i.shape[-1], 1]).T * u_t_i * eta / delta
         z_t, lab_t, img_t, pred_t, loss_t = generate_image_from_code(model, generator, z_t_ - g_t * eta)
         z_t_ = np.copy(z_t)
         for i in range(generator.label_size):
@@ -201,8 +201,11 @@ if __name__ == '__main__':
 
     mnist, size = mnist_loader()
 
+    fig_path = "./img/adv/%s_%i/" % (args.model, args.latent_dim)
+    if not os.path.exists(fig_path):
+        os.mkdir(fig_path)
+
     fig_path = "./img/adv/%s_%i/%s/" % (args.model, args.latent_dim, timestamp)
-    
     if not os.path.exists(fig_path):
         os.mkdir(fig_path)
 
