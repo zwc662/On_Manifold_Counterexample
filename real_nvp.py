@@ -38,7 +38,7 @@ if torch.cuda.device_count():
 device = next(realNVP.parameters()).device
 
 optimizer = optim.Adam(realNVP.parameters(), lr = 0.0001)
-num_steps = 5000
+num_steps = 102
 
 data_path = "code_dict_latent_10_tot_100000_2020_07_12_16_40_32_pca_"
 axis = (0,1)
@@ -49,9 +49,9 @@ code = pickle.load(open(data_path, 'rb'))
 ## in each loop, data is dynamically sampled from the scipy moon dataset
 for i in code.keys():
     print("Transforming digit %i..." % i)
+    X = code[i]
     for idx_step in range(num_steps):
         ## sample data from the scipy moon dataset
-        X = code[i]
         random.shuffle(X)
         X = torch.Tensor(X).to(device = device)/10.0
 
@@ -66,15 +66,17 @@ for i in code.keys():
         
         optimizer.step()
     
-        if (idx_step + 1) % 10 == 0:
+        if (idx_step + 1) % 100 == 0:
             print(f"idx_steps: {idx_step:}, loss: {loss.item():.5f}")
             
     ## after learning, we can test if the model can transform
     ## the moon data distribution into the normal distribution
-    X = torch.Tensor(X).to(device = device)
+    print("Training finished. Testing...")
+    X = torch.Tensor(X[:500]).to(device = device)
     z, logdet_jacobian = realNVP.inverse(X)
     z = z.cpu().detach().numpy()
     
+    print("Generating images...")
     X = X.cpu().detach().numpy()
     fig = plt.figure(2, figsize = (12.8, 4.8))
     fig.clf()
