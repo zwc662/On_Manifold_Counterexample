@@ -170,10 +170,22 @@ def pca(path, n_comp = 5):
     axis = [[cols - 2, cols - 1]]
 
     #axis = range(cols)
+    print(code[i][:10])
     visualize(code, axis)
     return code
 
-#def save_pca_code(code, axis, path):
+def dump_pca_code(code, axis = None, path = None):
+    vecs = {0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [], 8: [], 9: []}
+    for i in code.keys():
+        for j in code[i]:
+            if axis is None:
+                vecs[i].append([j[-2], j[-1]])
+            else:
+                vecs[i].append([j[a] for a in axis])
+    with open(*path) as output:
+        pickle.dump(vecs, output)
+
+
     
 
 def visualize(code, axis):
@@ -210,9 +222,6 @@ def visualize(code, axis):
 
 if __name__ == '__main__':
 
-    code_path = "./data/code_dict_10_2020_07_12_03_16_13.pt"
-    pca(code_path, 10)
-    exit(0)
 
     # Ignore warning message by tensor flow
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -274,11 +283,12 @@ if __name__ == '__main__':
 
     mnist, size = mnist_loader()
 
-    code_path = "./data/code_dict_%i_%s.pt" % (args.latent_dim, timestamp)
+    code_path = "./data/code_dict_latent_%i_tot_%i_%s" % (args.latent_dim, args.epoch * 10, timestamp)
     generate_code_dict_from_feeder(generator = generator_instance,  
-                                    feeder = mnist, iterations = 5000, 
+                                    feeder = mnist, iterations = args.epoch, 
                                     save = (code_path, 'wb'))
-    pca(code_path, 10)
+    code = pca(code_path, 10)
+    dump_pca_code(code, (8, 9), (code_path + "_pca_{}".format((8, 9)), "wb"))
     exit(0)
 
     fig_path = "./img/adv/%s_%i/" % (args.model, args.latent_dim)
