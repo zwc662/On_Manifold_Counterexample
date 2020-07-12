@@ -4,6 +4,7 @@ __pycache__/
 nohup.out
 .python-version
 *.pyc
+*.swp
 .idea
 model_cvae/vae.py
 model_cvae/train.py
