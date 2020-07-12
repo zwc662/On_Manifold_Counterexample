@@ -38,25 +38,25 @@ if torch.cuda.device_count():
 device = next(realNVP.parameters()).device
 
 optimizer = optim.Adam(realNVP.parameters(), lr = 0.0001)
-num_steps = 102
+num_steps = 101
 
 data_path = "code_dict_latent_10_tot_100000_2020_07_12_16_40_32_pca_"
 axis = (0,1)
-data_path = "./data/" + data_path + str(axis)
-code = pickle.load(open(data_path, 'rb'))
+data_path =  data_path + str(axis)
+code = pickle.load(open("./data/" + data_path, 'rb'))
 
 ## the following loop learns the RealNVP_2D model by data
 ## in each loop, data is dynamically sampled from the scipy moon dataset
 for i in code.keys():
     print("Transforming digit %i..." % i)
-    X = code[i]
     for idx_step in range(num_steps):
         ## sample data from the scipy moon dataset
+        X = code[i][:int(len(code[i])/2)]
         random.shuffle(X)
-        X = torch.Tensor(X).to(device = device)/10.0
+        X = torch.Tensor(X).to(device = device)
 
         ## transform data X to latent space Z
-        z, logdet = realNVP.inverse(X)
+        z, logdet = realNVP.inverse(X/10.)
     
         ## calculate the negative loglikelihood of X
         loss = torch.log(z.new_tensor([2*math.pi])) + torch.mean(torch.sum(0.5*z**2, -1) - logdet)
@@ -68,50 +68,50 @@ for i in code.keys():
     
         if (idx_step + 1) % 100 == 0:
             print(f"idx_steps: {idx_step:}, loss: {loss.item():.5f}")
+            pickle.dump(realNVP, open('./log/real_nvp/' + data_path + "_ep_%d" % idx_step, 'wb'))
             
     ## after learning, we can test if the model can transform
     ## the moon data distribution into the normal distribution
     print("Training finished. Testing...")
-    X = torch.Tensor(X[:500]).to(device = device)
-    z, logdet_jacobian = realNVP.inverse(X)
+    X = code[i][int(len(code[i])/2) + 1:]
+    X = torch.Tensor(X).to(device = device)
+    z, logdet_jacobian = realNVP.inverse(X/10.)
     z = z.cpu().detach().numpy()
     
     print("Generating images...")
     X = X.cpu().detach().numpy()
-    fig = plt.figure(2, figsize = (12.8, 4.8))
+    fig = plt.figure(2, figsize = (12.8, 4.8 * 2))
     fig.clf()
-    plt.subplot(1,2,1)
+    plt.subplot(2,2,1)
     plt.plot(X[:, 0], X[:, 1], ".")
     plt.title("X sampled from Moon dataset")
     plt.xlabel(r"$x_%i$" % axis[0])
     plt.ylabel(r"$x_%i$" % axis[1])
     
-    plt.subplot(1,2,2)
+    plt.subplot(2,2,2)
     plt.plot(z[:, 0], z[:, 1], ".")
     plt.title("Z transformed from X")
     plt.xlabel(r"$z_%i$" % axis[0])
     plt.ylabel(r"$z_%i$" % axis[1])
-    plt.savefig("./img/" + data_path + "_%i_transformed_to_z.png" % i)
+    plt.savefig("./img/real_nvp/" + data_path + "_%i_transformed_to_z.png" % i)
     
     ## after learning, we can also test if the model can transform
     ## the normal distribution into the moon data distribution 
     z = torch.normal(0, 1, size = (1000, 2)).to(device = device)
     X, _ = realNVP(z)
-    X = X.cpu().detach().numpy()
+    X = 10. * X.cpu().detach().numpy()
     z = z.cpu().detach().numpy()
     
-    fig = plt.figure(2, figsize = (12.8, 4.8))
-    fig.clf()
-    plt.subplot(1,2,1)
+    plt.subplot(2,2,3)
     plt.plot(z[:,0], z[:,1], ".")
     plt.title("Z sampled from normal distribution")
     plt.xlabel(r"$z_%i$" % axis[0])
     plt.ylabel(r"$z_%i$" % axis[1])
     
-    plt.subplot(1,2,2)
+    plt.subplot(2,2,4)
     plt.plot(X[:,0], X[:,1], ".")
     plt.title("X transformed from Z")
     plt.xlabel(r"$x_%i$" % axis[0])
     plt.ylabel(r"$x_%i$" % axis[1])
-    plt.savefig("./img/" + data_path + "_%i_transformed_from_z.png" % i)
+    plt.savefig("./img/real_nvp/" + data_path + "_%i_transformed_from_z.png" % i)
 
