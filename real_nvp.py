@@ -38,15 +38,15 @@ if torch.cuda.device_count():
 device = next(realNVP.parameters()).device
 
 optimizer = optim.Adam(realNVP.parameters(), lr = 0.0001)
-num_steps = 2000
+num_steps = 5000
 
-data_path = "code_dict_latent_10_tot_100000_2020_07_12_16_40_32_pca_"
+data_path = "code_dict_latent_10_tot_100000_2020_07_12_16_40_32_pca"
 
 axis_list = [(0, 1), (8, 9)]
+code = pickle.load(open("./data/" + data_path, 'rb'))['code']
+
 for axis in axis_list:
     print("PCA components {}".format(axis))
-    code = pickle.load(open("./data/" + data_path + str(axis), 'rb'))
-    
     ## the following loop learns the RealNVP_2D model by data
     ## in each loop, data is dynamically sampled from the scipy moon dataset
     for i in code.keys():
@@ -55,10 +55,10 @@ for axis in axis_list:
             ## sample data from the scipy moon dataset
             X = code[i][:int(len(code[i])/2)]
             random.shuffle(X)
-            X = torch.Tensor(X).to(device = device)
+            X = torch.Tensor(X[:, [axis[0], axis[1]]]).to(device = device)
     
             ## transform data X to latent space Z
-            z, logdet = realNVP.inverse(X/10.)
+            z, logdet = realNVP.inverse(X)
         
             ## calculate the negative loglikelihood of X
             loss = torch.log(z.new_tensor([2*math.pi])) + torch.mean(torch.sum(0.5*z**2, -1) - logdet)
@@ -76,8 +76,8 @@ for axis in axis_list:
         ## the moon data distribution into the normal distribution
         print("Training finished. Testing...")
         X = code[i][int(len(code[i])/2) + 1:]
-        X = torch.Tensor(X).to(device = device)
-        z, logdet_jacobian = realNVP.inverse(X/10.)
+        X = torch.Tensor(X[:, [axis[0], axis[1]]]).to(device = device)
+        z, logdet_jacobian = realNVP.inverse(X)
         z = z.cpu().detach().numpy()
         
         print("Generating images...")
@@ -100,7 +100,7 @@ for axis in axis_list:
         ## the normal distribution into the moon data distribution 
         z = torch.normal(0, 1, size = (1000, 2)).to(device = device)
         X, _ = realNVP(z)
-        X = 10. * X.cpu().detach().numpy()
+        X =  X.cpu().detach().numpy()
         z = z.cpu().detach().numpy()
         
         plt.subplot(2,2,3)
