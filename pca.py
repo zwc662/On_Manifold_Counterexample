@@ -17,6 +17,7 @@ def pca(path, n_comp = 5):
     print("Standardize PCA dataset")
     scalar= StandardScaler()
     for i in range(10):
+        print(np.asarray(code[i]).shape)
         inf[i] = np.min(code[i], 0)
         sup[i] = np.max(code[i], 0)
 
@@ -65,19 +66,37 @@ def visualize(code, axis = None, path = None):
 
     fig.subplots_adjust(hspace=1., wspace = 0.5)
     if path is not None:
+        plt.show()
         path = "./img/pca/{}_{}".format(axis, timestamp)
     plt.savefig(path)
-    plt.show()
+    plt.close()
+
+def recurrent_pca(path, n_comp = 5, n_recur = 10):
+    axis = range(n_comp)
+    i_recur = 0
+    code, _, _, _, _ = pca("./data/" + path, n_comp)
+    while i_recur <= n_recur:
+        with open("./data/" + path  + "_pca_code_recur_" + str(i_recur), "wb") as output:
+            pickle.dump(code, output)
+        visualize(code, axis, "./img/pca/" + path + "_pca_code_{}_recur_{}".format(axis, i_recur))
+
+        code, _, _, _, _ = pca("./data/"  + path + "_pca_code_recur_" + str(i_recur), n_comp)
+
+        i_recur += 1
+        
+
+
 
 if __name__ == '__main__':
     code_path = "code_dict_latent_10_tot_100000_2020_07_12_16_40_32"
-    code, mean, sup, inf, comp = pca("./data/" + code_path, 10)
+    recurrent_pca(code_path, n_comp = 10)
+    exit(0)
 
+    code, mean, sup, inf, comp = pca("./data/" + code_path, 10)
     save_dict= dict(code = code, mean = mean, sup = sup, inf = inf, comp = comp)
     path = ("./data/" + code_path + "_pca", "wb")
     with open(*path) as output:
         pickle.dump(save_dict, output)
-
     axis = range(10)
     visualize(code, axis, "./img/pca/" + code_path + "_pca_{}".format(axis))
 

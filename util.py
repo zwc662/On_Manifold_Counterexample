@@ -35,8 +35,43 @@ def shape_2d(_x, batch_size):
     _x = _x.reshape(batch_size, 28, 28)
     return np.expand_dims(_x, 3)
 
+class Rotator(object):
+    def __init__(self, dataset):
+        self.input_size = dataset.train.images.shape[1]
+        self.original_images = tf.placeholder(tf.float32, [None, self.input_size])
+        self.sess = tf.Session()
+        self.summary = tf.summary.merge_all()
 
-def mnist_train(model, epoch, save_path="./", mode="supervised", input_image=True):
+        self.images = tf.reshape(self.original_images, (-1, int(np.sqrt(self.input_size)), int(np.sqrt(self.input_size)), 1))
+        self.angles = tf.placeholder(tf.float32, [None, ])
+
+
+    def rotate(self, batch_data):
+        mini_batch = batch_data.shape[0]
+        rotated_batch = tf.reshape(batch_data[:1], (1, int(np.sqrt(self.input_size)), int(np.sqrt(self.input_size)), 1))
+        rotated_angles = tf.zeros(shape = (1, ))
+        for i in range(int(batch_data.shape[0]/mini_batch)):
+            #random_angles = tf.random.uniform(shape = (mini_batch, ), minval = -np.pi / 2, maxval = np.pi / 2)
+            random_angles = np.random.uniform(low = -np.pi/2, high = np.pi/2, size = (mini_batch, 1))
+            self.rotated_images = tf.contrib.image.transform(self.images, tf.contrib.image.angles_to_projective_transforms(
+                                self.angles, 
+                                tf.cast(tf.shape(self.images)[1], tf.float32), 
+                                tf.cast(tf.shape(self.images)[2], tf.float32)))
+            new_batch = self.sess.run(self.rotated_images, \
+                    feed_dict = {self.original_images: batch_data[i * mini_batch: (i + 1) * mini_batch], self.angles: random_angles.flatten()})
+        
+            if mini_batch == batch_data.shape[0]:
+                #return new_batch, np.reshape(random_angles.numpy(), [mini_batch, 1])
+                return new_batch, random_angles
+            else:
+                rotated_angles = tf.concatentate([rotated_angles, self.random_angles], concat_dim = 0)
+                rotated_batch = tf.concatenate([rotated_batch, new_batch], concat_dim = 0)
+
+        return rotated_batch.numpy(), np.reshape(rotated_angles.numpy(), [rotated_angles.shape[0], 1])
+    
+
+
+def mnist_train(model, epoch, save_path="./", mode="supervised", input_image=True, rotate = False):
     """ Train model based on mini-batch of input data.
 
     :param model:
@@ -48,6 +83,9 @@ def mnist_train(model, epoch, save_path="./", mode="supervised", input_image=Tru
     """
     # load mnist
     data, n = mnist_loader()
+    if rotate:
+        rotator = Rotator(data)
+    
     n_iter = int(n / model.batch_size)
     # logger
     if not os.path.exists(save_path):
@@ -67,6 +105,8 @@ def mnist_train(model, epoch, save_path="./", mode="supervised", input_image=Tru
         for _b in range(n_iter):
             # train
             _x, _y = data.train.next_batch(model.batch_size)
+            if rotate:
+                _x, _y = rotator.rotate(_x)
             _x = shape_2d(_x, model.batch_size) if input_image else _x
 
             if mode in ["conditional", "unsupervised"]:  # conditional unsupervised model
@@ -88,6 +128,11 @@ def mnist_train(model, epoch, save_path="./", mode="supervised", input_image=Tru
         if mode == "supervised":  # supervised model
             _x = shape_2d(data.test.images, data.test.num_examples) if input_image else data.test.image
             _y = data.test.labels
+            if not rotate:
+                _x = shape_2d(_x, model.batch_size) if input_image else _x
+            else:
+                _x, _y = rotate_random(_x)
+
             feed_dict = {model.x: _x, model.y: _y, model.is_training: False}
             loss, acc = model.sess.run([model.loss, model.accuracy], feed_dict=feed_dict)
             _result = np.append(np.mean(_result, 0), [loss, acc])

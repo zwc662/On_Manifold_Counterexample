@@ -7,6 +7,7 @@ from util import mnist_train
 import time
 import datetime
 timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y_%m_%d_%H_%M_%S')
+os.mkdir("./log/" + timestamp)
 
 
 def get_parameter(path, latent_dim):
@@ -36,9 +37,10 @@ if __name__ == '__main__':
                         choices=None, help='Learning rate. [default: 0.005]', metavar=None)
     parser.add_argument('-c', '--clip', action='store', nargs='?', const=None, default=None, type=float,
                         choices=None, help='Gradient clipping. [default: None]', metavar=None)
+    parser.add_argument('--rotate', help = 'Rotate?', action='store_true', default=False)
     args = parser.parse_args()
     print("\n Start train %s \n" % args.model)
-    save_path = "./log/%s_%i/" % (args.model, args.latent_dim) 
+    save_path = "./log/%s/%s_%i_%s/" % (timestamp, args.model, args.latent_dim, "rotate" if args.rotate else "label") 
     param = get_parameter("./parameter/%s.json" % args.model, args.latent_dim)
     opt = dict(network_architecture=param, batch_size=args.batch_size, learning_rate=args.lr, save_path=save_path,
                max_grad_norm=args.clip)
@@ -67,8 +69,11 @@ if __name__ == '__main__':
         sys.exit("unknown model !")
 
     if _mode == "conditional":
-        opt["label_size"] = 10
+        if args.rotate:
+            opt["label_size"] = 1
+        else:
+            opt["label_size"] = 10
     model = Model(**opt)
-    mnist_train(model=model, epoch=args.epoch, save_path=save_path, mode=_mode, input_image=_inp_img)
+    mnist_train(model=model, epoch=args.epoch, save_path=save_path, mode=_mode, input_image=_inp_img, rotate = args.rotate)
 
 

@@ -32,30 +32,33 @@ masks = [[1.0, 0.0],
 hidden_dim = 128
 
 ## construct the RealNVP_2D object
-realNVP = RealNVP_2D(masks, hidden_dim)
-if torch.cuda.device_count():
-    realNVP = realNVP.cuda()
-device = next(realNVP.parameters()).device
-
-optimizer = optim.Adam(realNVP.parameters(), lr = 0.0001)
-num_steps = 5000
+num_steps = 3000
 
 data_path = "code_dict_latent_10_tot_100000_2020_07_12_16_40_32_pca"
 
 axis_list = [(0, 1), (8, 9)]
 code = pickle.load(open("./data/" + data_path, 'rb'))['code']
 
-for axis in axis_list:
-    print("PCA components {}".format(axis))
-    ## the following loop learns the RealNVP_2D model by data
-    ## in each loop, data is dynamically sampled from the scipy moon dataset
-    for i in code.keys():
-        print("Transforming digit %i..." % i)
+for i in code.keys():
+    print("Transforming digit %i..." % i)
+    for axis in axis_list:
+        print("{}: PCA components {}".format(i, axis))
+        ## the following loop learns the RealNVP_2D model by data
+        ## in each loop, data is dynamically sampled from the scipy moon dataset
+        loss_ = 0
+
+        realNVP = RealNVP_2D(masks, hidden_dim)
+        if torch.cuda.device_count():
+            realNVP = realNVP.cuda()
+        device = next(realNVP.parameters()).device
+        optimizer = optim.Adam(realNVP.parameters(), lr = 0.0001)
+
         for idx_step in range(num_steps):
             ## sample data from the scipy moon dataset
-            X = code[i][:int(len(code[i])/2)]
-            random.shuffle(X)
-            X = torch.Tensor(X[:, [axis[0], axis[1]]]).to(device = device)
+            idx = range(len(code[i]))
+            #idx = random.sample(idx, 1000)
+            X = torch.Tensor(code[i])[idx][axis].to(device = device)
+            #X = torch.Tensor(X).to(device = device)
     
             ## transform data X to latent space Z
             z, logdet = realNVP.inverse(X)
@@ -70,13 +73,17 @@ for axis in axis_list:
         
             if (idx_step + 1) % 100 == 0:
                 print(f"idx_steps: {idx_step:}, loss: {loss.item():.5f}")
-                pickle.dump(realNVP, open('./log/real_nvp/' + data_path + str(axis) + "_digit_%d_ep_%d" % (i, idx_step), 'wb'))
+                pickle.dump(realNVP, open('./log/real_nvp/' + data_path + "_digit_%d_axis_%s_ep_%d" % (i, str(axis), idx_step), 'wb'))
+            if abs(loss - loss_) <= 5e-5:
+                pickle.dump(realNVP, open('./log/real_nvp/' + data_path + "_digit_%d_axis_%s_ep_%d" % (i, str(axis), idx_step), 'wb'))
+                break
+                
                 
         ## after learning, we can test if the model can transform
         ## the moon data distribution into the normal distribution
         print("Training finished. Testing...")
-        X = code[i][int(len(code[i])/2) + 1:]
-        X = torch.Tensor(X[:, [axis[0], axis[1]]]).to(device = device)
+        X = code[i]
+        X = torch.Tensor(code[i])[:, axis].to(device = device)
         z, logdet_jacobian = realNVP.inverse(X)
         z = z.cpu().detach().numpy()
         
